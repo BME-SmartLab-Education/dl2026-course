@@ -4,8 +4,8 @@ Everything you need for the semester project lives here.
 
 | | |
 |---|---|
-| **[project/](project/README.md)** | What you are building, what data you may use, the rules, and how grading works. **Read this first.** |
-| **[practical-01/](practical-01/README.md)** | The photo collection session: what to shoot, how much, and how to upload it |
+| **[practices/](practices/README.md)** | What you are building, what data you may use, the rules, and how grading works. **Read this first.** |
+| **[practices/001.md](practices/001.md)** | The photo collection session: what to shoot, how much, and how to upload it |
 | **[template/](template/README.md)** | Your starting repository. Docker, PyTorch, and a place for everything |
 
 ## In one paragraph
@@ -19,7 +19,7 @@ photographs of documents that appear nowhere in your training data.
 
 ## Getting started
 
-1. Read [project/README.md](project/README.md), particularly section 2 on what
+1. Read [practices/README.md](practices/README.md), particularly section 2 on what
    you may use and section 6 on grading.
 2. Copy `template/` into a repository of your own and make your first commit.
 3. Run `docker compose build` and then the environment check, and confirm your
