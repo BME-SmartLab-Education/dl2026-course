@@ -1,0 +1,39 @@
+# Copy this per experiment and keep the file alongside the result, so a number
+# can always be traced back to the settings that produced it.
+name: resnet18_384
+seed: 42
+
+data:
+  labels: data/raw/labels.csv
+  images: data/raw/images
+  image_size: 384
+
+split:
+  strategy: by_group        # by_group is correct; random exists to measure the gap
+  group_column: layout_id
+  val_fraction: 0.2
+
+model:
+  type: cnn
+  backbone: resnet18
+  pretrained: true
+
+train:
+  epochs: 15
+  batch_size: 32
+  lr: 0.0002
+  weight_decay: 0.0001
+  # Flips and small translations are safe. Blur, brightness jitter and noise
+  # change image quality, which is the thing you are predicting.
+  augment: [hflip, translate]
+
+wandb:
+  project: dl2026-docphoto
+  # entity comes from WANDB_ENTITY in .env; leave unset to use your default
+  tags: []
+
+predict:
+  checkpoint: models/best.pt          # the weights this submission comes from
+  test_dir: data/raw/test
+  sample: data/raw/sample_submission.csv
+  out: submissions/submission.csv

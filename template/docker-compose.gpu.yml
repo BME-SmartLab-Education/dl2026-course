@@ -1,0 +1,19 @@
+# Overlay that gives the containers the GPU. Add it to the compose command on a
+# machine that has an NVIDIA GPU; leave it out and everything still runs, just
+# slower:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm dev
+
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  dev:
+    <<: *gpu
+  lab:
+    <<: *gpu

@@ -1,0 +1,36 @@
+# One file per experiment. Copy this, change what you are testing, and keep the
+# file with the result so a number can always be traced back to its settings.
+name: baseline
+seed: 42
+
+data:
+  labels: data/raw/labels.csv
+  images: data/raw/images
+  image_size: 384
+
+split:
+  # by_group is the correct choice; random exists so you can measure the gap.
+  strategy: by_group
+  group_column: layout_id
+  val_fraction: 0.2
+
+model:
+  type: gradient_boosting
+
+train:
+  # deep models only
+  epochs: 15
+  batch_size: 32
+  lr: 0.0002
+  weight_decay: 0.0001
+
+wandb:
+  project: dl2026-docphoto
+  # entity comes from WANDB_ENTITY in .env; leave unset to use your default
+  tags: []
+
+predict:
+  checkpoint: models/best.pt          # the weights this submission comes from
+  test_dir: data/raw/test
+  sample: data/raw/sample_submission.csv
+  out: submissions/submission.csv
