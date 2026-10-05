@@ -1,8 +1,7 @@
 # Data never goes in git. It is large, it is regenerable, and it makes the
 # repository unusable for everyone else. Keep the directory, ignore the content.
 data/raw/*
-data/interim/*
-data/processed/*
+data/work/*
 !data/**/.gitkeep
 
 # Trained weights and checkpoints
@@ -16,8 +15,6 @@ models/*
 *.pkl
 
 # Generated output
-runs/*
-!runs/.gitkeep
 submissions/*
 !submissions/.gitkeep
 *.log

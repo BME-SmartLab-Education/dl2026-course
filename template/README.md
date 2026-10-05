@@ -1,111 +1,117 @@
 # Document photo quality — semester project
 
 Predict how usable a phone photograph of a printed document is for automatic
-text recognition. One number per image, between 0 and 1.
+text recognition. One number per image, between 0 and 1:
 
 ```
-usability = 1 - relative_CER
+usability = 1 - CER
 ```
 
-1.0 means the photograph costs the OCR nothing. 0.0 means the text is gone. The
-competition metric is RMSE.
+1.0 means the OCR engine read the page perfectly. 0.0 means nothing usable came
+out. The competition metric is RMSE.
 
 This repository is your starting point. The infrastructure works; the modelling
-code is yours to write. Every source file is a stub saying what belongs in it.
-
----
+code is yours to write, and every source file is a stub saying what belongs in
+it. The rules, the data you may use and the grading are in the **project
+description**, not here.
 
 ## Setup
 
-The only thing you need installed is **Docker**. Python, PyTorch, CUDA and every
-library live in the image, so the project behaves the same on your laptop, on a
-lab machine and on ours.
+**1. Docker and the environment.** The only thing you need installed is
+Docker. Python, PyTorch, CUDA and every library live in the image.
 
 ```bash
 git init
 git add .
 git commit -m "Initial project structure"
 
+cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
 docker compose build
 docker compose run --rm dev python scripts/check_env.py
 ```
 
-The second command should end with a GPU line and a successful matmul. If it
-says the GPU is unavailable, everything still runs, just slowly.
+If your machine has an NVIDIA GPU, uncomment the `COMPOSE_FILE` line for your
+operating system in `.env`. Without it everything still runs, on the CPU.
 
-```
-python       3.11.9 on Linux
-torch        2.4.1+cu124
-gpu          NVIDIA RTX 3500 Ada Generation Laptop GPU (12.0 GB)
-gpu check    matmul ok
-project root /workspace
-```
+**2. Weights & Biases.** Sign up or log in at https://wandb.ai, then copy your
+API key from **https://wandb.ai/authorize** and paste it into `.env` after
+`WANDB_API_KEY=`. Without a key your runs go to an anonymous account. Never
+commit `.env`.
 
-If your machine has an NVIDIA GPU, add the overlay so the container can see it:
+**3. The training data.** It is a private Kaggle dataset, about 800 MB. The
+link is on the lab slides and on Moodle. **Do not share the link and do not
+re-upload the photographs anywhere**: they are your classmates' photographs and
+for this course only.
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm dev python scripts/check_env.py
-```
-
-Then put the data you were given in `data/raw/` and leave it alone.
-
-### Experiment tracking
-
-Runs are logged to **Weights & Biases**. Set it up once:
+Log in to Kaggle with the one account you will use for the whole semester,
+open the link, press **Download**, and unpack the ZIP into this repository so
+that `data/raw/train.csv` and `data/raw/train/` (1841 `.jpg` files) exist:
 
 ```bash
-cp .env.example .env      # then paste your key from https://wandb.ai/authorize
+unzip ~/Downloads/archive.zip -d data/raw                                    # Linux, macOS
 ```
 
-Docker Compose reads `.env` automatically and passes the key into the container.
-`.env` is gitignored — **never commit your key**, and if you paste one into a
-notebook by accident, revoke it rather than deleting the line.
+```powershell
+Expand-Archive "$HOME\Downloads\archive.zip" -DestinationPath data\raw      # Windows PowerShell
+```
 
-Three modes, set by `WANDB_MODE` in `.env`:
+`data/` is in `.gitignore`. Run `git status` before your first commit and make
+sure nothing from `data/` is listed.
 
-| value | what it does |
+## Running a notebook from Docker
+
+Nothing runs on your host except Docker. Jupyter runs inside the container
+and you open it in a browser.
+
+1. From the repository root, start Jupyter Lab:
+
+   ```bash
+   docker compose up lab
+   ```
+
+2. Wait for the line `Jupyter Server ... is running at` and open
+   **http://localhost:8888** in your browser. There is no password or token.
+3. Open your notebook under `notebooks/`.
+4. Edit the `src/` files in your own editor on the host. The project folder
+   is mounted into the container, so the notebook sees every saved change;
+   `importlib.reload(module)` picks it up without restarting the kernel.
+5. To stop, press `Ctrl+C` in the terminal, then run `docker compose down`.
+
+**From VS Code instead of the browser.** Start the container as in step 1,
+open the notebook in VS Code, click **Select Kernel → Existing Jupyter
+Server**, and enter `http://localhost:8888`.
+
+**If something goes wrong.**
+
+| symptom | fix |
 |---|---|
-| `online` | normal, logs to wandb.ai |
-| `offline` | logs to disk; upload later with `wandb sync wandb/…` |
-| `disabled` | no logging at all, useful while debugging |
+| `port is already allocated` | another Jupyter is running: `docker compose down`, or stop the other one |
+| the notebook does not see your W&B key | you edited `.env` after starting: `docker compose down`, then `docker compose up lab` |
+| `ModuleNotFoundError: src` | the notebook was opened from outside the container; use the browser at localhost:8888 |
+| a cell keeps running old code | save the file, then rerun the cell; if it persists, *Kernel → Restart* |
 
-You will run dozens of experiments this semester and you will not remember which
-one produced which number. That is the problem this solves. Log the resolved
-config, the loss curves, the final metrics, and the checkpoint as an artifact —
-the last one matters, because you have to hand in the exact weights that
-produced your submission.
+Git runs on your host, not in the container: commit and push from a host
+terminal in this folder.
 
-### Everyday commands
+---
+
+## Everyday commands
 
 ```bash
 docker compose run --rm dev bash                    # interactive shell
 docker compose run --rm dev pytest                  # tests
-docker compose run --rm dev python -m src.train --config configs/cnn.yaml
+docker compose run --rm dev ruff check .            # lint
+docker compose run --rm dev python -m src.train --config configs/mlp.yaml
 docker compose up lab                               # Jupyter Lab, localhost:8888
-```
-
-These are long to type a hundred times, so define an alias once:
-
-```bash
-# bash / zsh, in your shell profile
-alias dc='docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm dev'
-dc python -m src.train --config configs/cnn.yaml
-```
-
-```powershell
-# PowerShell, in $PROFILE
-function dc { docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm dev @args }
-dc python -m src.train --config configs/cnn.yaml
 ```
 
 There is deliberately no Makefile. The commands above *are* the interface, and
 when something breaks you will be debugging Docker rather than a wrapper around
 it.
 
-### How the container is put together
+## How the container is put together
 
-Three details are worth understanding, because they are the ones that break
-when you change something.
+Three details, because they are the ones that break when you change something.
 
 **The project is mounted, not copied.** Editing a file on your host changes it
 in the container immediately. You only need `docker compose build` again when
@@ -119,42 +125,39 @@ CPU-only build and quietly waste your GPU.
 your project are yours. If your host user id is not 1000 you will see permission
 errors; rebuild with `docker compose build --build-arg UID=$(id -u)`.
 
-The GPU is enabled by adding `-f docker-compose.gpu.yml` to the compose command,
-as shown above. Leave it out on a machine without an NVIDIA GPU and everything
-still works, just slowly.
-
 ---
 
 ## Layout
 
 ```
 src/
-  config.py            paths and settings everything else imports
+  config.py            project root, target column, seed
   data/
-    dataset.py         loading images and labels
-    splits.py          train and validation splits   <- write this first
+    dataset.py         the table, the resize cache, the pixel table
+    splits.py          the grouped split   <- write this first
   features/
     handcrafted.py     classical image quality features
   models/
     baseline.py        features + a classical regressor
+    mlp.py             a first, fully connected network
     cnn.py             convolutional models
-  utils/
-    seed.py            reproducibility
-    logging.py         run logging
+  seed.py              reproducibility
+  tracking.py          Weights & Biases
   train.py             one entry point, driven by a config
   evaluate.py          scoring and error breakdown
   predict.py           writes a submission file  <- read the contract in it
 
-configs/               one YAML per experiment
-.env.example           copy to .env, holds your W&B key (never committed)
+configs/               one YAML per experiment; mlp.yaml for a first network
 scripts/check_env.py   verifies the container, prints versions and GPU status
 notebooks/             exploration; move anything reusable into src/
 tests/                 start with test_splits.py
-data/                  raw / interim / processed, none of it tracked
-models/                checkpoints, not tracked
-runs/                  local run artefacts and figures (W&B holds the metrics)
+data/raw/              what you were given, read only
+data/work/             everything derived from it, regenerable
+models/                checkpoints
 submissions/           competition files
 ```
+
+Nothing under `data/`, `models/` or `submissions/` is tracked by git.
 
 ## Making a Kaggle submission
 
@@ -169,71 +172,71 @@ docker compose run --rm dev python -m src.predict \
 
 Then upload `submissions/cnn_best.csv` to the competition page.
 
-### The format
+The file has exactly two columns, `image_id` and `usability`, one row per test
+image in the order of the competition's `sample_submission.csv`, every value a
+float in [0, 1]. `src/predict.py` builds the output *from the sample
+submission* rather than from a directory listing, so the ids and the row order
+cannot drift, and it asserts the row count, uniqueness, no NaNs and the value
+range before writing. Each of those has cost somebody a submission slot.
 
-Exactly two columns, one row per test image, in the order given by the
-competition's `sample_submission.csv`:
+**One image in, one prediction out.** Your prediction for an image depends on
+that image and your trained weights only, which is why the loop in `predict.py`
+handles one image at a time and shares nothing between iterations. Batching for
+speed is fine. Pooling anything across the test set is not; section 2 of the
+project description says why.
 
-```csv
-image_id,usability
-test_0001,0.8213
-test_0002,0.1044
-```
-
-`image_id` is the test filename without its extension, copied from the sample
-submission. `usability` is a float in [0, 1] — clip it, because a prediction of
-1.3 is not a bolder guess, it is an error the metric charges you for.
-
-`src/predict.py` builds the output *from the sample submission* rather than from
-a directory listing, so the ids and the row order cannot drift. It also asserts
-four things before writing, each of which has cost somebody a submission slot:
-the row count matches, ids are unique, there are no NaNs, and every value is
-inside [0, 1].
-
-### One image in, one prediction out
-
-Your prediction for an image must depend on **that image and your trained
-weights only**. That is why the loop in `predict.py` handles one image at a time
-and shares nothing between iterations.
-
-Batching for speed is fine — a batch of independent images still gives each its
-own answer. What is not allowed is anything that pools information across the
-test set: normalising by statistics computed over all test images, clustering
-photos of the same page, or reconstructing a page's text by combining several
-photos of it. Read section 2 of the project description before you get clever
-here; that section exists because one of those tricks would work.
-
-### The checkpoint is part of the submission
-
-You hand in the weights that produced your predictions, not a later or better
-version. Log every checkpoint to W&B as an artifact of the run that made it and
-this question answers itself; otherwise keep a note in the repository saying
-which file goes with which submission.
+**The checkpoint is part of the submission.** You hand in the weights that
+produced your predictions, not a later or better version. Log every checkpoint
+to W&B as an artifact of the run that made it and this question answers itself.
 
 ## The order of work
 
 1. **Write the split.** Before any model. See below.
-2. **Look at the data.** Plot the label distribution. Compare the best and worst
-   photos and work out what distinguishes them.
-3. **Build the baseline.** Handcrafted features plus a classical regressor. This
-   is the number a deep model has to beat to justify itself.
-4. **Build a CNN.** Pretrained backbone, regression head. Compare honestly.
-5. **Improve it.** Resolution, augmentation, architecture, ensembling.
+2. **Look at the data.** Plot the label distribution. Compare the best and
+   worst photos *at full resolution*: a thumbnail hides the difference between
+   a dark page and a blurred one.
+3. **Train a network.** Pretrained backbone, regression head. Get one run
+   working end to end, with a checkpoint and a submission file, before you
+   improve anything.
+4. **Compare it against the baseline.** The instructor publishes a classical
+   baseline on the leaderboard, built from handcrafted image features, and your
+   network has to beat it. Building your own version takes an afternoon and
+   shows you what a whole-image statistic can and cannot see.
+5. **Improve it.** Resolution first, then augmentation, architecture,
+   ensembling. Change one thing per run.
 
 ## Write the split first
 
-The same document layout appears in many photographs, and every layout exists in
-both a Hungarian and an English version. If you split rows at random,
-near-identical photos of the same page land in training and validation at the
-same time, and the score you report is optimistic.
+The same page appears in dozens of photographs, every layout exists in a
+Hungarian and an English version typeset identically, and each photographer's
+photos share a phone and a room. Split rows at random and near-identical photos
+land in training and validation at the same time, and the score you report is
+optimistic.
 
-We measured the effect on simulated data: **a naive per-image split flatters
-validation RMSE by about 11 %.**
+We measured it on this data with a ResNet-18 at 768 px, scoring the same model
+four ways:
 
-Hold out whole layout groups, keep both language variants of a layout on the
-same side, and keep the family mix similar in both. `tests/test_splits.py` is
-there for you to assert that no group appears on both sides. It is a few lines,
-and it protects every number you report this semester.
+| validation scheme | RMSE |
+|---|---|
+| random 5-fold | 0.113 |
+| folds by `group` | 0.136 |
+| folds by `group_strict` | 0.143 |
+| the held-out test set | **0.148** |
+
+The random split is a fifth too good. `group`, in which no page and no
+photographer appears twice, is still 8 % too good: the two language versions
+of a layout sit in two neighbouring groups, and a network recognises the
+layout. `group_strict` keeps both versions together, which is how the test set
+was cut, and it lands on the test. The stronger the model, the more it profits
+from every leak, so the mistake grows with your progress.
+
+**Split by `group_strict`.** The training set has six strict units of ten pages
+each, and each covers one or two document families, so which unit you hold out
+matters: two of them are the only source of their family. The split therefore
+has its own seed, separate from the model's, so that rerunning a model with
+another seed does not move the validation photographs. `tests/test_splits.py`
+asserts that no unit appears on both sides. It is a few lines, and it protects
+every number you report this semester.
 
 Implementing the random split too and measuring your own gap makes a far more
 convincing paragraph in your report than a number we gave you.
@@ -245,12 +248,22 @@ safe. Blur, brightness jitter and added noise change the very thing you are
 predicting, so they corrupt the label. This is the most common way to make a
 model quietly worse.
 
-**Leaking the photo condition.** The training filenames record how each photo
-was taken. That information does not exist at test time. Train on it and your
-validation score will be excellent and your leaderboard score will not.
+**Metadata as model input.** `page_id`, `family`, `font`, `size_pt`,
+`photographer` and the rest exist only in `train.csv`; a test image is an image
+and nothing else. Use the columns to split and to slice your error, never as
+features.
+
+**Measuring on `eval_ok = 0`.** Those 47 photographs were uploaded heavily
+downscaled. Train on them if you like, but leave them out of every number you
+report.
+
+**Too little resolution.** At 384 px a ResNet-18 loses to the handcrafted
+baseline; the defects that matter are a few pixels wide on a 2048 px frame.
+Resize once into `data/work/` and start at 768.
 
 **Reporting a single number.** RMSE tells you how well you did, not what to fix.
-Break the error down by document family, language, font size and defect type.
+Break the error down by document family, language, font, font size and
+photographer.
 
 **Not fixing the seed.** You will compare dozens of runs. A difference smaller
 than your run-to-run variance is not a result.
@@ -260,13 +273,19 @@ than your run-to-run variance is not a result.
 
 ## Notes on the data
 
-Photographs vary in perspective, lighting, background surface and phone. Because
-the pages carry corner markers and are rectified before OCR, the angle matters
-much less than it looks: a 47 degree shot scores about the same as a straight-on
-one.
+The photographs have their long side at 2048 px and no metadata. The fiducial
+markers the labelling relied on have been painted out, so the four flat patches
+near the page corners are not part of the document, and you cannot rectify the
+page from them. The page edges are still there if you want to try.
 
-The defects that matter most are the **local** ones, a reflection or a shadow
-across part of the page. The same defect over one column and over empty margin
+The defects that matter most are the **local** ones: a smear across one column,
+a crease through a paragraph. The same defect over text and over empty margin
 looks nearly identical to a whole-image statistic and produces very different
 labels. That is the core difficulty of this task, and it is why an average of
 sharpness or brightness over the frame only gets you so far.
+
+`train_annotations.csv` and `train_consensus.csv` hold human ratings of about a
+third of the photographs, on a 1 to 5 scale, from several raters each. The
+competition does not score them. Where people and the OCR engine disagree, and
+whether the disagreement is structured, is an open question on data you helped
+create.

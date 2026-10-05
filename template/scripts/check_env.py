@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Confirm the container is set up correctly before you debug anything else.
 
-    make check
+    docker compose run --rm dev python scripts/check_env.py
 """
 from __future__ import annotations
 
@@ -36,9 +36,16 @@ def main() -> int:
     else:
         print("gpu          not available; training will run on CPU and be slow")
 
+    import os
+
+    import wandb
+    key = "set" if os.environ.get("WANDB_API_KEY") else "not set, runs will be anonymous"
+    print(f"wandb        {wandb.__version__}, mode {os.environ.get('WANDB_MODE', 'online')}, api key {key}")
+
     from src import config
     print(f"project root {config.ROOT}")
-    n = len(list(config.DATA_RAW.glob('*'))) if config.DATA_RAW.exists() else 0
+    raw = config.ROOT / "data" / "raw"
+    n = len(list(raw.glob("*"))) if raw.exists() else 0
     print(f"data/raw     {n} entries")
     return 0
 

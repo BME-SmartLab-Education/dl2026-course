@@ -5,8 +5,8 @@
 venv
 data
 models
-runs
 submissions
+wandb
 notebooks/*.ipynb
 .cache
 **/__pycache__

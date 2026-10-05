@@ -4,6 +4,8 @@
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Notebooks are for exploring; lint the code that ends up in src/.
+extend-exclude = ["notebooks"]
 
 [tool.ruff.lint]
 select = [

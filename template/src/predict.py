@@ -6,19 +6,23 @@
 
 This file is a skeleton. The parts that define the *submission contract* are
 written out, because getting them wrong wastes a submission. The parts that are
-your model are marked TODO.
+your model are marked TODO; for an MLP on pixels they are: rebuild the model from
+the checkpoint (it stores the config, the input size and the standardiser),
+turn one image into pixels with `pixels_of_image`, standardise them with the
+stored mean and scale, and run the model. This is homework, since the competition is not open
+yet, and it is the first thing to test when it opens.
 
 THE CONTRACT
 ------------
 Output a CSV with exactly two columns and one row per test image:
 
     image_id,usability
-    test_0001,0.8213
-    test_0002,0.1044
+    ph_00659482,0.8213
+    ph_0112e28f,0.1044
 
 * `image_id` is the test image filename **without its extension**, exactly as it
   appears in the competition's `sample_submission.csv`. Do not invent your own
-  ids, do not reorder rows to be safe, and do not add an index column.
+  ids, do not reorder rows, and do not add an index column.
 * `usability` is a float in [0, 1]. Clip it. A prediction of 1.3 is not a bolder
   guess, it is an error the metric will charge you for.
 * Every id in `sample_submission.csv` must appear exactly once. A missing row is
@@ -27,14 +31,13 @@ Output a CSV with exactly two columns and one row per test image:
 THE RULE THAT SHAPES THIS FILE
 ------------------------------
 Your prediction for an image must depend on **that image and your trained
-weights only**. Not on other test images, not on any network call.
+weights only**. Not on other test images, not on any network call, not on an
+OCR engine.
 
 That is why the loop below runs one image at a time and why nothing is shared
 between iterations. Batching for speed is fine, since a batch of independent
 images still gives each its own answer. What is not fine is anything that pools
-information across the test set: computing statistics over all test images and
-normalising by them, clustering photos of the same page, or reconstructing a
-page's text by combining several photos of it. See the project description.
+information across the test set. See section 2 of the project description.
 """
 from __future__ import annotations
 
@@ -42,8 +45,7 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
-
-from src import config
+import yaml
 
 
 def load_model(checkpoint: Path, cfg: dict):
@@ -75,14 +77,15 @@ def main() -> None:
     ap.add_argument("--config", required=True)
     ap.add_argument("--checkpoint", required=True,
                     help="the weights that will produce this submission")
-    ap.add_argument("--test-dir", default=str(config.DATA_RAW / "test"),
+    ap.add_argument("--test-dir", default="data/raw/test",
                     help="directory of test images")
-    ap.add_argument("--sample", default=str(config.DATA_RAW / "sample_submission.csv"),
+    ap.add_argument("--sample", default="data/raw/sample_submission.csv",
                     help="the competition's sample submission; defines ids and row order")
     ap.add_argument("--out", required=True, help="where to write the submission CSV")
     a = ap.parse_args()
 
-    cfg = {}  # TODO: load the YAML at a.config
+    with open(a.config) as f:
+        cfg = yaml.safe_load(f)
 
     # The sample submission is the source of truth for which ids exist and in
     # what order. Build the output from it rather than from a directory listing,
@@ -96,7 +99,6 @@ def main() -> None:
 
     predictions = []
     for image_id in sample["image_id"]:
-        # TODO: the competition may use .jpg or .png; check and fix the suffix
         image_path = test_dir / f"{image_id}.jpg"
         if not image_path.exists():
             raise SystemExit(f"missing test image: {image_path}")

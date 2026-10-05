@@ -5,17 +5,18 @@ Everything you need for the semester project lives here.
 | | |
 |---|---|
 | **[practices/](practices/README.md)** | What you are building, what data you may use, the rules, and how grading works. **Read this first.** |
-| **[practices/001.md](practices/001.md)** | The photo collection session: what to shoot, how much, and how to upload it |
+| **[practices/001.md](practices/001.md)** | The photo collection session: what was shot, how much, and how it was uploaded |
 | **[template/](template/README.md)** | Your starting repository. Docker, PyTorch, and a place for everything |
 
 ## In one paragraph
 
-You photograph printed documents, and those photographs become the dataset. Each
-one gets a label automatically: how much text an OCR engine loses on it,
-expressed as a number between 0 and 1. Over the semester you build models that
-predict that number from the image alone, first a classical baseline and then a
-convolutional network. The final ranking is a private Kaggle competition on
-photographs of documents that appear nowhere in your training data.
+You photographed printed documents, and those photographs are the dataset. Each
+one has a label computed automatically: how much text an OCR engine loses on
+it, expressed as a number between 0 and 1. Over the semester you build models
+that predict that number from the image alone, a convolutional network first
+and a classical baseline to compare it against. The final ranking is a private
+Kaggle competition on photographs of documents that appear nowhere in your
+training data.
 
 ## Getting started
 
@@ -27,9 +28,10 @@ photographs of documents that appear nowhere in your training data.
 
 ## The two mistakes that cost the most
 
-**Splitting your data at random.** The same document appears in many
-photographs, in two languages. Hold out whole layout groups or your validation
-score will lie to you by roughly 11%.
+**Splitting your data at random.** The same page appears in dozens of
+photographs, in two languages, by the same photographers. Hold out whole units
+of the `group_strict` column or your validation score will lie to you by a
+fifth.
 
 **Augmenting with blur or brightness jitter.** Those change image quality, which
 is the thing you are predicting, so they corrupt the label. Flips and small

@@ -3,9 +3,10 @@
 **Predict how usable a phone photograph of a document is for automatic text
 recognition.**
 
-You build the dataset in the first practical, annotate part of it later in the
-term, and spend the semester building models that predict the label. The final
-ranking is a private Kaggle competition. Work is **individual**.
+You built the dataset in the first practical and rated part of it in the
+second. You spend the rest of the semester building models that predict the
+label. The final ranking is a private Kaggle competition. Work is
+**individual**.
 
 ---
 
@@ -29,8 +30,8 @@ OCR engine lose on it?**
 
 That is a regression problem on images, and it has a property that makes it more
 interesting than it first looks. The answer is not simply "is this photo
-blurry". A reflection over a blank margin costs nothing. The same reflection
-over a paragraph destroys it. Two photographs that look equally degraded to any
+blurry". A smear over a blank margin costs nothing. The same smear over a
+paragraph destroys it. Two photographs that look equally degraded to any
 whole-image statistic can have completely different answers, and separating them
 means looking at *where* the damage falls relative to the text.
 
@@ -69,24 +70,31 @@ hosted model you can only rewrite the prompt and hope.
 
 None of which means "do not try it" as an experiment. But note that section 2
 forbids any network call at prediction time, so it cannot be part of your
-submission. For scale: a stock ResNet-18, trained for about two minutes on a
-laptop GPU, reaches a rank correlation of 0.95 with the true labels.
+submission. For scale: a stock ResNet-18 at 768 px, trained in about a quarter
+of an hour on a laptop GPU, reaches RMSE 0.143 under honest validation where
+a seven-feature classical baseline reaches 0.193, and the headroom above it
+is large.
 
 ### The target
 
 For each photograph, predict a single number between 0 and 1:
 
 ```
-usability    = 1 - relative_CER
+usability = 1 - clip( CER, 0, 1 )
 
-relative_CER = clip( (CER_photo - CER_baseline_page) / (1 - CER_baseline_page), 0, 1 )
+CER = edit_distance( OCR(photo), page_text ) / length( page_text )
 ```
 
-`CER` is the character error rate of an OCR engine against the page's known
-source text. The page's own baseline CER, measured from a perfect render, is
-subtracted so the label describes **the photograph** rather than how hard the
-document is to read. 1.0 means the photo costs the OCR nothing; 0.0 means the
-text is gone.
+`CER` is the character error rate of an OCR engine reading the photographed
+page, against the page's known source text. 1.0 means the engine read the page
+perfectly; 0.0 means nothing usable came out.
+
+The page's own condition is part of the label, deliberately. Several sheets in
+the collection were creased, stained, torn or printed faintly on purpose, and a
+perfect photograph of a badly damaged sheet scores low, as it should. In an
+archive the question is what *this image* is worth to the OCR engine, whatever
+made it that way, so we do not subtract off how hard the document was to read
+in the first place.
 
 **Metric: RMSE** on the private leaderboard.
 
@@ -98,14 +106,16 @@ text is gone.
 
 | | |
 |---|---|
-| **Training images** | The photographs the class collects in Practical 1, from 40 document layouts, each in a Hungarian and an English version |
-| **Training labels** | `usability` for every training image, computed automatically by the OCR pipeline |
-| **Training metadata** | `page_id`, `layout_id`, `family`, `lang`, `font`, `size_pt` for each training image |
-| **Test images** | Photographs of **15 layouts that appear nowhere in the training data**, taken by people not enrolled in the course. No labels, no metadata |
-| **Annotation labels** | From Practical 2: human accept/retake judgements on a subset of training images, with per-annotator detail |
+| **Training images** | 1841 photographs of 60 printed pages: 30 document layouts, each in a Hungarian and an English version, taken by the class in Practical 1 with 40 different phones |
+| **Training labels** | `usability` for every training image, computed automatically by the OCR pipeline, with `cer` beside it |
+| **Training metadata** | `group` and `group_strict` for splitting; `page_id`, `layout_id`, `family`, `lang`, `font`, `size_pt` for what was printed; `photographer`; `eval_ok` |
+| **Test images** | Photographs of pages that appear in **no training image**: part of the class collection held out whole, plus pages photographed separately. No labels, no metadata |
+| **Human ratings** | From Practical 2: 1 to 5 ratings of about a third of the training images, several raters each, with defect tags and per-rater detail |
 
-All released images have their EXIF metadata stripped, including GPS and device
-information.
+All released images have their long side at 2048 px and their EXIF metadata
+stripped, including GPS and device information. The fiducial markers the
+labelling relied on have been **painted out**; the four flat patches near the
+page corners are not part of the document.
 
 ### What you may use for training
 
@@ -117,7 +127,7 @@ Anything in the table above, plus:
   pretraining, domain adaptation, pseudo-labelling. You have the pixels; you
   simply have no labels for them.
 - **Synthetic data you generate yourself** from the training images.
-- **The metadata**, including `layout_id`. You need it to build a correct
+- **The metadata**, including `group_strict`. You need it to build a correct
   validation split, which is the first thing you should do.
 
 ### What you may use at prediction time
@@ -128,12 +138,10 @@ Anything in the table above, plus:
 Allowed, because all of it is computed from the pixels in front of you:
 
 - the pixels themselves, at any resolution
-- marker detection and perspective rectification, which you are encouraged to do
+- page detection and perspective rectification from the page edges, if you
+  can make it work; the markers are gone, so there is no shortcut
 - sharpness, exposure, histogram, blockiness and similar statistics, whole-image
   or tile-wise
-- an OCR engine **running locally on your machine**, using its output or
-  confidence as a feature — legitimate, though it makes inference far slower
-  than the real use case would tolerate
 - your own trained model, with frozen weights
 
 **Not allowed, and each of these means rejection:**
@@ -142,6 +150,11 @@ Allowed, because all of it is computed from the pixels in front of you:
   vision-language or language model services, no cloud OCR, no search, no
   remote inference. Your submission must be producible with the network cable
   unplugged.
+- **Any OCR engine at prediction time**, local or otherwise, and any feature
+  derived from one, such as its output, its confidence, or a dictionary hit
+  rate. The label *is* one engine's error rate, so an engine's output is a
+  proxy of the label rather than a property of the image, and triage that runs
+  OCR is not cheaper than OCR.
 - **Any external database, lookup table or corpus** keyed on image content or
   page identity.
 - **Any information from other test images.** Your prediction for image X must
@@ -153,11 +166,11 @@ Allowed, because all of it is computed from the pixels in front of you:
 
 ### Why the "one image at a time" rule exists
 
-The test set contains several photographs of each page, and you can tell which
-photos show the same page because the markers say so. That opens an attack:
-combine the OCR output of many degraded photos of one page, take a consensus,
-and you have reconstructed something close to that page's true text. With it you
-can compute the actual CER of each photo directly and skip modelling entirely.
+The test set contains several photographs of each page, and photographs of the
+same page are recognisable as such. That opens an attack: combine the readings
+of many degraded photos of one page, take a consensus, and you have
+reconstructed something close to that page's true text. With it you can compute
+the actual CER of each photo directly and skip modelling entirely.
 
 It is clever, and it is forbidden. It works only because a benchmark hands you
 twenty shots of the same document; a phone deciding whether to accept a photo
@@ -179,9 +192,10 @@ deadline rather than after.
 **Reconstructing the reference text of test pages**, by consensus OCR across
 photos of the same page or by any other route.
 
-**Using the condition label.** The training photos are grouped by how they were
-taken. That grouping does not exist at test time, and a model trained on it will
-have an excellent validation score and a poor leaderboard score.
+**Using training metadata as model input.** `page_id`, `family`, `font`,
+`photographer` and the rest exist only in the training table. A model that
+reads them will have an excellent validation score and no way to run on a test
+image.
 
 **Hand-labelling test images.** Looking at test photographs and assigning values
 by eye, alone or collectively, is not a model.
@@ -207,9 +221,9 @@ regenerate the predictions you submitted, the submission does not count.
 
 | when | what |
 |---|---|
-| `<<DATE>>` | **Practical 1** — photo collection. Attendance and a valid upload are required |
+| Thu 17 September 2026 | **Practical 1** — photo collection. Attendance and a valid upload were required |
+| `<<DATE>>` | **Practical 2** — human rating of a subset of the photographs |
 | `<<DATE>>` | Labelled training set released |
-| `<<DATE>>` | **Practical 2** — annotation and consensus labelling |
 | **Mon 2 November 2026** | Kaggle competition opens, test images released |
 | **Fri 11 December 2026** | Kaggle submissions close, 23:59 |
 | **Fri 11 December 2026** | Repository and checkpoint due, 23:59 |
@@ -217,10 +231,10 @@ regenerate the predictions you submitted, the submission does not count.
 
 The competition runs for **just under six weeks**. That is enough time to build
 something good and not enough to leave it until the last weekend, particularly
-since the repository has to show that the work happened as you went.
-
-The dates before the competition opens depend on the teaching schedule and will
-be announced on the course page.
+since the repository has to show that the work happened as you went. The month
+between the training release and the competition opening is for getting a
+network to train and a submission file to come out the other end, so that when
+the test images arrive you are improving a model rather than debugging Docker.
 
 ---
 
@@ -261,7 +275,7 @@ readable and the experiments are traceable to configs, that is enough.
 - **You have no valid Kaggle submission at all.**
 - **You did not contribute photographs** in Practical 1, or your upload was
   unusable. The dataset is a shared resource and everyone contributes to it.
-- **You did not take part in the annotation practical.**
+- **You did not take part in the rating practical.**
 - **Your repository does not run**, or does not reproduce the submission you
   made, or the checkpoint behind that submission is not available.
 - **You broke one of the rules in sections 2 and 3**, or submitted work that is
@@ -269,7 +283,7 @@ readable and the experiments are traceable to configs, that is enough.
 
 ### You get the signature if
 
-You contributed photographs, took part in the annotation practical, submitted
+You contributed photographs, took part in the rating practical, submitted
 predictions that beat the reference baseline, and handed in a repository that
 runs together with the checkpoint that produced those predictions.
 
@@ -295,19 +309,18 @@ Reproducing the baseline competently earns a signature, not a five.
 
 Good material for a defence:
 
-- **The human labels against the machine labels.** Practical 2 gives you
-  accept/retake judgements from five annotators per image. The Kaggle
-  competition does not score them, which leaves the interesting question open:
-  where do people and the OCR engine disagree, and is the disagreement
+- **The human labels against the machine labels.** Practical 2 gives you 1 to 5
+  ratings from about five raters each on a third of the training images. The
+  Kaggle competition does not score them, which leaves the interesting question
+  open: where do people and the OCR engine disagree, and is the disagreement
   structured? Two effects are worth hunting for — a steeply angled photo looks
-  bad to a person but rectifies away to nothing for the OCR, while a mild blur
-  nobody notices destroys 7.5 point text. Predicting the human label, or the
-  annotator disagreement itself, is a genuine modelling problem on data you
-  helped create.
+  bad to a person but costs the OCR little, while a mild blur nobody notices
+  destroys small type. Predicting the human label, or the rater disagreement
+  itself, is a genuine modelling problem on data you helped create.
 - **The cost of the wrong validation split**, measured on your own data rather
   than quoted from this document.
-- **What your model gets wrong**, sliced by document family, font size and
-  defect type, and what you did about it.
+- **What your model gets wrong**, sliced by document family, font, font size
+  and photographer, and what you did about it.
 - **An ablation that isolates why something worked**, rather than a leaderboard
   score that moved for unclear reasons.
 
@@ -323,11 +336,17 @@ Signature, then the exam.
 
 ## 7. Two things that will cost you if you ignore them
 
-**Split by layout, not at random.** The same document appears in many photos, and
-every layout exists in two languages typeset identically. A random split puts
+**Split by `group_strict`, not at random.** The same page appears in dozens of
+photographs, every layout exists in two languages typeset identically, and each
+photographer's photos share a phone and a room. A random split puts
 near-identical photographs on both sides and your validation score becomes
-optimistic — we measured about **11%** on simulated data. Hold out whole layout
-groups. The template has a place for this and a test that checks it.
+optimistic. We measured it on this data with a ResNet-18 at 768 px: RMSE
+**0.113** by random 5-fold, **0.136** by `group`, **0.143** by `group_strict`,
+and **0.148** on the held-out test set. The random split is a fifth too good,
+`group` is still 8 % too good because a layout's two language versions sit in
+neighbouring groups, and `group_strict` lands on the test. The stronger the
+model, the more it gains from the leak. Hold out whole `group_strict` units.
+The template has a place for this and a test that checks it.
 
 **Do not augment with anything that changes image quality.** Flips and small
 translations are safe. Blur, brightness jitter and added noise change the very

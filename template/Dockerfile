@@ -6,7 +6,7 @@ FROM pytorch/pytorch:2.4.1-cuda12.4-cudnn9-runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
 # libgl1 / libglib2.0-0 are OpenCV's runtime dependencies.
-# git is here so the container can run pre-commit and inspect history.
+# git is here so W&B can record the commit each run was made from.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         libgl1 \
