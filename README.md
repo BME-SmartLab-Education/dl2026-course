@@ -8,6 +8,13 @@ Everything you need for the semester project lives here.
 | **[practices/001.md](practices/001.md)** | The photo collection session: what was shot, how much, and how it was uploaded |
 | **[template/](template/README.md)** | Your starting repository. Docker, PyTorch, and a place for everything |
 
+## Labs
+
+| | |
+|---|---|
+| **[lab_3_baseline/](lab_3_baseline/README.md)** | Lab 3: the split, a gradient-boosting baseline and a first network. Copied out as your project repository |
+| **[lab_4_cnn/](lab_4_cnn/README.md)** | Lab 4: a convolutional network from scratch, the checks before training, the optimiser's starting configuration. Copied *into* your repository from lab 3, as the README describes |
+
 ## In one paragraph
 
 You photographed printed documents, and those photographs are the dataset. Each
