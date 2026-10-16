@@ -1,10 +1,18 @@
 # Lab 4 — convolution: resolution and weight sharing
 
-This folder is not a new project. It is a set of files that you copy **into
-your own lab-3 repository** (`dl2026-docphoto`), on top of what is there. Your
-repository stays the one repository of the semester; the files in `overlay/`
+**Lab 4 continues in the repository you made in lab 3 (`dl2026-docphoto`).
+No new repository, no new folder inside it.** This folder is a set of files
+that you copy into the root of that repository, on top of what is there; your
+lab-3 work stays where it is and lab 4 builds on it. The files in `overlay/`
 add a convolutional network, the checks to run before training, the
-lecture's starting configuration for the optimiser, and augmentation.
+lecture's starting configuration for the optimiser, and augmentation. Your
+Docker image, your `.env`, your `data/raw/` and the 768 px cache in
+`data/work/` from lab 3 are used as they are: nothing to rebuild or download.
+
+**From lab 3, lab 4 needs one thing: TASK 1, `build_splits`.**
+`docker compose run --rm dev pytest tests/test_splits.py` must pass. The other
+lab-3 tasks (the MLP, the training functions) and the lab-3 homework are not
+used by lab 4.
 
 Nothing in `overlay/` overwrites a file that holds one of your lab-3 tasks
 or homework (`splits.py`, `mlp.py`, `train.py`, `predict.py`,
@@ -24,16 +32,24 @@ git status            # must be empty; if not, commit first
 git log --oneline -1  # note this commit
 ```
 
-**2. Copy the overlay in.** From your repository root, with this folder at
-`<course>/lab_4_cnn` (wherever you cloned the course repository):
+**2. Get the lab-4 files and copy them in.** In lab 3 you cloned the course
+repository (`dl2026-course`) and copied `lab_3_baseline` out of it as
+`dl2026-docphoto`, next to it. Update the clone, then copy the overlay into
+the root of your repository:
 
 ```bash
-cp -r <course>/lab_4_cnn/overlay/. .                                   # Linux, macOS, Git Bash
+cd dl2026-course && git pull && cd ..                                  # the course clone, next to your repository
+cd dl2026-docphoto
+cp -r ../dl2026-course/lab_4_cnn/overlay/. .                           # Linux, macOS, Git Bash
 ```
 
 ```powershell
-Copy-Item -Recurse -Force <course>\lab_4_cnn\overlay\* .                # Windows PowerShell
+cd dl2026-course; git pull; cd ..
+cd dl2026-docphoto
+Copy-Item -Recurse -Force ..\dl2026-course\lab_4_cnn\overlay\* .           # Windows PowerShell
 ```
+
+If your clone lives somewhere else, use its path instead of `../dl2026-course`.
 
 **3. Check what changed.** `git status --short` must show exactly these
 lines, nothing more and nothing less:
