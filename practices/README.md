@@ -243,10 +243,10 @@ the test images arrive you are improving a model rather than debugging Docker.
 **Kaggle predictions.** Submitted through the competition page. The private
 leaderboard decides the ranking.
 
-**A git repository.** Built on the provided template. It must contain the code
-that produced your submission, and someone else must be able to run it. Commit
-as you work — a repository whose entire history is one commit on the deadline is
-not evidence that you did the work.
+**A git repository.** Built on the reference solution's repository (or on the
+template). It must contain the code that produced your submission, and someone
+else must be able to run it. Commit as you work — a repository whose entire
+history is one commit on the deadline is not evidence that you did the work.
 
 **Your trained model checkpoint.** It must be **the model that produced your
 submitted predictions**, not a later or a different one. Either:
@@ -258,8 +258,11 @@ submitted predictions**, not a later or a different one. Either:
 
 A repository that runs but has no reachable weights does not satisfy this.
 
-No written report is required. Your repository is the report: if the code is
-readable and the experiments are traceable to configs, that is enough.
+**An experiment log**, `EXPERIMENTS.md` at the root of the repository: one
+table, the chain of changes from the reference to your submission with their
+fold scores (section 6). No other written report is required. Your repository
+is the report: if the code is readable and the experiments are traceable to
+configs, that is enough.
 
 ---
 
@@ -267,11 +270,29 @@ readable and the experiments are traceable to configs, that is enough.
 
 ### You do not get the signature if any of these is true
 
-- **Your best submission does not beat the reference baseline.** The instructor
-  publishes a baseline on the leaderboard, built from classical handcrafted
-  image features. A submission scoring worse than it does not qualify, however
-  much work went into it. The baseline is beatable by any correctly trained
-  network, and it is there to establish that a deep model was actually needed.
+- **Your selected submission does not reach the signature line: a private
+  RMSE at least 25 % below the reference solution's.** The reference solution
+  is in [`reference/`](../reference/README.md), and it is on the leaderboard as
+  a benchmark: lab 4's network with lab 4's best setting, trained on all the
+  training photographs. Its private RMSE is 0.210, so the line is **0.157**.
+  Of your selected final submissions (at most two) the better one counts.
+
+  Why 25 %: the reference trained again with another random seed lands
+  anywhere between 0.204 and 0.216, so a small margin would reward luck. In
+  our trials no change to lab 4's network trained from scratch came near the
+  line; the methods of lecture 6 and labs 5 and 6, combined and validated,
+  reach it with room to spare. Expect your public score to be a rough preview
+  only: the reference scores 0.216 on the public leaderboard.
+- **Your experiment log does not show four improvements.** `EXPERIMENTS.md`
+  at the root of your repository (template in
+  [`reference/EXPERIMENTS.md`](../reference/EXPERIMENTS.md)) must show at
+  least four changes, in one chain from the reference to your selected
+  submission, each of which lowered the out-of-fold RMSE of the four
+  `group_strict` folds compared with the step before it. A change is one
+  modification of the data handling, the network, the training or the
+  prediction, with its reason; another seed or a rerun is not a change, and
+  an ensemble counts once. Every number in the table must come from a config
+  in your repository.
 - **You have no valid Kaggle submission at all.**
 - **You did not contribute photographs** in Practical 1, or your upload was
   unusable. The dataset is a shared resource and everyone contributes to it.
@@ -283,9 +304,10 @@ readable and the experiments are traceable to configs, that is enough.
 
 ### You get the signature if
 
-You contributed photographs, took part in the rating practical, submitted
-predictions that beat the reference baseline, and handed in a repository that
-runs together with the checkpoint that produced those predictions.
+You contributed photographs, took part in the rating practical, selected a
+submission that reaches the signature line, logged at least four validated
+improvements that lead to it, and handed in a repository that runs together
+with the checkpoint that produced those predictions.
 
 The signature makes you eligible for the exam. Most students take this route.
 

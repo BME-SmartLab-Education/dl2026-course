@@ -15,6 +15,12 @@ Everything you need for the semester project lives here.
 | **[lab_3_baseline/](lab_3_baseline/README.md)** | Lab 3: the split, a gradient-boosting baseline and a first network. Copied out as your project repository |
 | **[lab_4_cnn/](lab_4_cnn/README.md)** | Lab 4: a convolutional network from scratch, the checks before training, the optimiser's starting configuration. Copied *into* your repository from lab 3, as the README describes |
 
+## The competition
+
+| | |
+|---|---|
+| **[reference/](reference/README.md)** | The reference solution on the leaderboard: lab 4's network trained on all the data. The signature needs four validated improvements on it and a private score 25 % below it. A repository of its own: copy it out and start the competition from it |
+
 ## In one paragraph
 
 You photographed printed documents, and those photographs are the dataset. Each
