@@ -19,7 +19,7 @@ Everything you need for the semester project lives here.
 
 | | |
 |---|---|
-| **[reference/](reference/README.md)** | The reference solution on the leaderboard: lab 4's network trained on all the data. The signature needs four validated improvements on it and a private score 25 % below it. A repository of its own: copy it out and start the competition from it |
+| **[reference_solution/](reference_solution/README.md)** | The reference solution on the leaderboard: lab 4's network trained on all the data. The signature needs four validated improvements on it and a private score 25 % below it. A repository of its own: copy it out and start the competition from it |
 
 ## In one paragraph
 

@@ -1,4 +1,5 @@
-# The reference solution of the DL2026 competition: lab 4's best run, on all the data.
+# The reference solution of the Snap or Retake: Document Photo Usability competition:
+# lab 4's network with a setting from lab 4 that works well enough, trained on all the data.
 # Copy this file to try something: python -m src.train --config configs/my_try.yaml
 # Every number that changes the result is here; the command line only picks the fold.
 

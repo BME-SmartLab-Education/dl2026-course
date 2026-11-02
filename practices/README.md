@@ -244,8 +244,11 @@ the test images arrive you are improving a model rather than debugging Docker.
 leaderboard decides the ranking.
 
 **A git repository.** Built on the reference solution's repository (or on the
-template). It must contain the code that produced your submission, and someone
-else must be able to run it. Commit as you work — a repository whose entire
+template, or on anything else). It must contain the code that produced your
+submission, and someone else must be able to run it. Its `main` branch holds
+your solution and nothing else: the code and configs behind the submission and
+the experiment log, but no lab code, abandoned notebooks or unused pipelines;
+keep those on another branch or in another repository. Commit as you work — a repository whose entire
 history is one commit on the deadline is not evidence that you did the work.
 
 **Your trained model checkpoint.** It must be **the model that produced your
@@ -272,20 +275,20 @@ configs, that is enough.
 
 - **Your selected submission does not reach the signature line: a private
   RMSE at least 25 % below the reference solution's.** The reference solution
-  is in [`reference/`](../reference/README.md), and it is on the leaderboard as
-  a benchmark: lab 4's network with lab 4's best setting, trained on all the
+  is in [`reference_solution/`](../reference_solution/README.md), and it is on the leaderboard as
+  a benchmark: lab 4's network with a setting from lab 4 that works well enough, trained on all the
   training photographs. Its private RMSE is 0.210, so the line is **0.157**.
   Of your selected final submissions (at most two) the better one counts.
 
   Why 25 %: the reference trained again with another random seed lands
   anywhere between 0.204 and 0.216, so a small margin would reward luck. In
   our trials no change to lab 4's network trained from scratch came near the
-  line; the methods of lecture 6 and labs 5 and 6, combined and validated,
+  line; the methods of lecture 6 and labs 6 and 7, combined and validated,
   reach it with room to spare. Expect your public score to be a rough preview
   only: the reference scores 0.216 on the public leaderboard.
 - **Your experiment log does not show four improvements.** `EXPERIMENTS.md`
   at the root of your repository (template in
-  [`reference/EXPERIMENTS.md`](../reference/EXPERIMENTS.md)) must show at
+  [`reference_solution/EXPERIMENTS.md`](../reference_solution/EXPERIMENTS.md)) must show at
   least four changes, in one chain from the reference to your selected
   submission, each of which lowered the out-of-fold RMSE of the four
   `group_strict` folds compared with the step before it. A change is one

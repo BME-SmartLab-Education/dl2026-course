@@ -1,14 +1,23 @@
 # The reference solution
 
-This is the model behind the **Reference solution** line on the competition
-leaderboard, and the repository you start the competition from. It is lab 4's
-network with lab 4's best setting, trained on all the training photographs: a
-small convolutional network of 25 thousand weights, trained from scratch on
-grey 768 × 768 px pages. About four hundred lines of Python.
+This is the model behind the **Reference solution** line on the leaderboard of
+the **Snap or Retake: Document Photo Usability** competition, and a repository
+you can start the competition from. It is lab 4's network with a setting from
+lab 4 that works well enough, trained on all the training photographs: a small
+convolutional network of 25 thousand weights, trained from scratch on grey
+768 × 768 px pages. About four hundred lines of Python.
 
-For the signature you improve on it in at least four validated steps, and
-your selected submission must reach a private RMSE at least 25 % below the
-reference's, that is **0.157 or lower** (`practices/README.md`, section 6).
+**Using it is a suggestion, not a requirement.** You may build on your lab
+repositories, on the course template or on anything else you write. Whatever
+you build on, the reference is the starting point you are measured from: the
+signature line below is defined by its score, and the first row of your
+experiment log is the reference, scored on the same four folds as everything
+after it (`assign_folds` in `src/common.py`).
+
+For the signature you improve on the reference in at least four validated
+steps, and your selected submission must reach a private RMSE at least 25 %
+below the reference's, that is **0.157 or lower** (`practices/README.md`,
+section 6).
 
 | RMSE | 4-fold CV by `group_strict` | public leaderboard | private leaderboard |
 |---|---|---|---|
@@ -22,27 +31,29 @@ rooms, and their labels are more spread out: even the constant does worse
 there. Compare your models with each other on the folds; the leaderboard tells
 you where you stand, not which of two close variants is better.
 
-One run takes about 2 minutes on a laptop GPU and about 20 minutes on
-**four laptop CPU cores**, so the reference itself needs no GPU.
+One run takes about 2 minutes on an NVIDIA RTX 3500 Ada laptop GPU and about
+20 minutes on **four laptop CPU cores**, so the reference itself needs no GPU.
 What you build on it probably will (see [below](#without-a-gpu-of-your-own)).
 
 ## Set it up
 
-This folder is a repository of its own, with lab 3's Docker image. It does not
-go into your lab-3 repository: copy it out of the course clone and start a new
-repository from it.
+This folder is lab 3's Docker environment plus the reference code. How you
+keep it in git is up to you: a new repository of its own (the simplest, and
+what the commands below do), or a separate branch of a repository you already
+have. Whichever you choose, the repository you hand in must have **only your
+solution on its `main` branch** ([What you hand in](#what-you-hand-in)).
 
 ```bash
 git -C <course> pull                                           # Linux, macOS, Git Bash
-cp -r <course>/reference ~/dl2026-competition
-cd ~/dl2026-competition
+cp -r <course>/reference_solution ~/snap-or-retake
+cd ~/snap-or-retake
 git init && git add . && git commit -m "reference solution"
 ```
 
 ```powershell
 git -C <course> pull                                           # Windows PowerShell
-Copy-Item -Recurse <course>\reference $HOME\dl2026-competition
-cd $HOME\dl2026-competition
+Copy-Item -Recurse <course>\reference_solution $HOME\snap-or-retake
+cd $HOME\snap-or-retake
 git init; git add .; git commit -m "reference solution"
 ```
 
@@ -58,24 +69,39 @@ docker compose build          # instant if lab 3's image is still there: same na
 docker compose run --rm dev python scripts/check_env.py
 ```
 
-On a machine with an NVIDIA GPU, uncomment the `COMPOSE_FILE` line for your
-operating system in `.env`. The reference does not log to Weights & Biases;
-the key in `.env` is there for what you add.
+**On a machine with an NVIDIA GPU** the GPU has to be switched on, in one of
+two ways (pick one):
 
-**The data**, four things in `data/raw/`, exactly there:
+* **once, in `.env`** (recommended): uncomment the `COMPOSE_FILE` line for your
+  operating system. Every command in this README then uses the GPU as written;
+* **or in every command**: leave `.env` alone and put
+  `-f docker-compose.yml -f docker-compose.gpu.yml` after `docker compose`, for
+  example
+  `docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm dev python scripts/check_env.py`.
+
+Either way, `check_env.py` then prints a `gpu` line with the card's name; if it
+says `not available`, the run is on the CPU. The reference does not log to
+Weights & Biases; the key in `.env` is there for what you add.
+
+## The data
+
+Two downloads, from two places. `data/raw/` in this repository is empty
+(only a `.gitkeep`): you put the files there yourself, and nothing in `data/`
+goes into git.
+
+| what | where it comes from |
+|---|---|
+| `train.csv`, `train/` (1841 .jpg) | **the training dataset released earlier**, the one you used in the labs. Copy both from your lab repository's `data/raw/`, or download the dataset again: its link is in the competition's *Data* description |
+| `test/` (1628 .jpg), `sample_submission.csv` | **the competition**: its *Data* tab, *Download All* |
+
+Unpack them so that exactly these four exist:
 
 ```
-data/raw/train.csv                the training dataset
-data/raw/train/                   1841 .jpg
-data/raw/test/                    1628 .jpg, from the competition's Data tab
-data/raw/sample_submission.csv    from the competition's Data tab
+data/raw/train.csv                the labels and the grouping columns
+data/raw/train/                   1841 training photographs
+data/raw/test/                    1628 test photographs
+data/raw/sample_submission.csv    the image_id of every test photograph
 ```
-
-Copy `train.csv` and `train/` from your lab-3 repository's `data/raw/`, or
-download the training dataset again (the link is on Moodle). Download the
-competition's data from its *Data* tab (*Download All*) and unpack it into
-`data/raw/` so that `test/` and `sample_submission.csv` land next to
-`train/`. Nothing in `data/` goes into git; `.gitignore` keeps it out.
 
 ## Run it
 
@@ -100,10 +126,21 @@ another GPU or a CPU does the arithmetic in a slightly different order.
 
 ## Validate on the folds
 
-The leaderboard is no place to compare two versions of a model: five
-submissions a day, a public third of the test pages, and differences of a few
-thousandths that are noise there. The folds are. Train on three folds and
-score the fourth:
+**Why not just use the leaderboard.** Kaggle scores every upload on all test
+photographs but shows you only part of the result. The **public leaderboard**
+is the RMSE on about a third of the test pages, shown right after each upload.
+The **private leaderboard** is the RMSE on the other two thirds; it stays
+hidden until the deadline, and it alone decides the ranking and the signature
+line. A third of the pages is a handful of sheets, so two versions of a model
+that differ by a few thousandths on the public board are often in the opposite
+order on the private one. Worse, every choice you make by looking at the public
+score fits those few pages a little more: after a few weeks of tuning on it,
+the public score flatters you and the private one, revealed at the end, does
+not. With five uploads a day you also cannot test much there. The folds have
+none of these problems: they are yours, as many runs as you like, and the
+photographs they hold out never shaped the model.
+
+Train on three folds and score the fourth:
 
 ```bash
 docker compose run --rm dev python -m src.train --fold 0             # folds 1-3 train, fold 0 validates
@@ -160,13 +197,11 @@ The choices, and the lab each one comes from:
 
 ## Where to go from here
 
-The reference is where lab 4 ended. Everything since then is the map:
-lecture 5 (optimisers, the learning-rate range test, regression losses),
-lecture 6 (architectures, transfer learning, augmentation), lab 5 (pretrained
-networks) and lab 6 (ensembles). None of it is in the reference, and much of
-it matters on this data. Which parts, and how much, is what your experiments
-are for. Code from your lab repositories may be brought over; this repository
-is the one you hand in.
+The reference is where lab 4 ended. None of the techniques that came after it
+in the lectures and the labs is in it, and much of that matters on this data. Which parts,
+and how much, is what your experiments are for. Code from your lab
+repositories may be brought over, as long as it ends up as part of your
+solution.
 
 Two habits make the difference between four steps and four guesses:
 
@@ -184,15 +219,41 @@ out-of-fold RMSE compared with the step before it. Record them in
 deadline. Changes that did not help belong in it too; they just do not count
 towards the four.
 
+## What you hand in
+
+The full rules are in `practices/README.md`, section 5. In short, four things:
+
+1. **Kaggle predictions**, uploaded to the competition, with your final
+   submission selected on *My Submissions*.
+2. **A git repository whose `main` branch is your solution and nothing else**,
+   runnable by someone else from its README:
+   * the code that produced the selected submission, and the commands that
+     run it;
+   * the config of every step in your experiment log, so that each number in
+     it can be reproduced;
+   * `EXPERIMENTS.md` (item 4) and a README.
+
+   Not on `main`: lab code, notebooks of abandoned ideas, copies of other
+   pipelines, anything the submission does not use. Keep those on another
+   branch or in another repository. A commit history that shows the work is
+   welcome on `main`; dead code in its final state is not.
+3. **The trained checkpoint behind your selected submission**: committed if it
+   is small enough, otherwise a download link in the README with the file's
+   size and SHA-256 checksum.
+4. **The experiment log**, `EXPERIMENTS.md`: one table, from the reference to
+   your selected submission.
+
 ## Without a GPU of your own
 
-**Kaggle Notebooks** give 30 GPU hours a week for free (*Settings → Accelerator
-→ GPU*; your phone number has to be verified). In a new notebook, add the
-competition and the training dataset as inputs (*Add Input*), switch
-*Internet* on (for `git clone` and any pretrained weights), then:
+**Kaggle Notebooks** give a free weekly GPU quota (*Settings → Accelerator →
+GPU*; your phone number has to be verified). Kaggle does not promise a fixed
+number of hours: it has been about 30 hours a week, and the notebook's side
+panel shows how much you have left. In a new notebook, add the competition and
+the training dataset as inputs (*Add Input*), switch *Internet* on (for
+`git clone` and any pretrained weights), then:
 
 ```python
-!git clone https://<token>@github.com/<you>/dl2026-competition.git repo
+!git clone https://<token>@github.com/<you>/snap-or-retake.git repo
 %cd repo
 !ln -s /kaggle/input/<training-dataset>/train data/raw/train
 !cp /kaggle/input/<training-dataset>/train.csv data/raw/
@@ -206,7 +267,7 @@ Look up the two `/kaggle/input/...` folder names in the notebook's input panel.
 A private repository needs a GitHub token with read access in the URL (add it
 as a Kaggle *Secret*, never in the notebook's text). Download the checkpoint
 and the submission from the *Output* panel and commit the config you trained
-with; the checkpoint goes where `practices/README.md` section 5 says.
+with; the checkpoint goes where [What you hand in](#what-you-hand-in) says.
 **Colab** works the same way with the data copied to a private Google Drive.
 Either way the photographs stay private: never a public notebook, never a
 public link.
