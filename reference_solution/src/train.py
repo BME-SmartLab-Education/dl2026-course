@@ -16,6 +16,16 @@ What one run does, in order:
   5. trains for a fixed number of epochs with AdamW and a warm-up-cosine schedule,
   6. saves the checkpoint, the per-epoch log and (fold runs only) the
      validation predictions.
+Every run is also logged to Weights & Biases (src/tracking.py); WANDB_MODE=disabled
+in .env turns that off.
+
+This file only puts the pieces together, each in a file of its own:
+  src/config.py    the config, the seed, the device, mixed precision
+  src/data.py      the tables, the folds, the images, the augmentation
+  src/model.py     the network
+  src/loss.py      the loss, and how the network's output becomes a prediction
+  src/optim.py     the parameter groups and the learning-rate schedule
+  src/evaluate.py  predictions for a loader, and the RMSE
 """
 from __future__ import annotations
 
@@ -29,50 +39,13 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from src.common import (
-    TARGET,
-    Photos,
-    assign_folds,
-    autocast,
-    build_model,
-    cache_path,
-    device,
-    load_config,
-    predict,
-    rmse,
-    seed_everything,
-    train_table,
-    worker_init,
-)
-
-
-def lr_at(step: int, total: int, warmup: float) -> float:
-    """Linear warm-up, then a cosine down to zero; a factor on the base learning rate.
-
-    `step` counts optimiser steps (batches), not epochs. The first `warmup`
-    fraction of them ramps the factor from almost 0 to 1, so that the first,
-    still random updates cannot throw the network far off; the rest follows
-    half a cosine from 1 to 0, so that the last epoch makes only small changes
-    and the final weights are a settled point rather than a random one.
-    """
-    w = max(1, int(total * warmup))
-    if step < w:
-        return (step + 1) / w
-    return 0.5 * (1 + math.cos(math.pi * (step - w) / max(1, total - w)))
-
-
-def param_groups(model: torch.nn.Module, weight_decay: float) -> list[dict]:
-    """Weight decay on the convolution and linear weights only, not on biases and norms (lab 4).
-
-    Tensors with more than one dimension are convolution kernels and linear
-    weight matrices; the one-dimensional ones are biases and the BatchNorm
-    scales and shifts. Pulling those towards zero would only fight the
-    normalisation, so they get no decay.
-    """
-    decay = [p for p in model.parameters() if p.ndim > 1]
-    no_decay = [p for p in model.parameters() if p.ndim <= 1]
-    return [{"params": decay, "weight_decay": weight_decay},
-            {"params": no_decay, "weight_decay": 0.0}]
+from src import tracking
+from src.config import autocast, device, load_config, seed_everything
+from src.data import TARGET, Photos, assign_folds, cache_path, train_table, worker_init
+from src.evaluate import predict, rmse
+from src.loss import loss_fn
+from src.model import build_model
+from src.optim import lr_at, param_groups
 
 
 def pixel_stats(ds: Photos, n: int = 200) -> tuple[float, float]:
@@ -101,8 +74,16 @@ def main() -> None:
     cfg = load_config(a.config) if a.config else load_config()
     if a.seed is not None:
         cfg["seed"] = a.seed
-    seed_everything(cfg["seed"])
     d, t = cfg["data"], cfg["train"]
+    # The run's name ends up in every file it writes; keep it unique if you
+    # change something that is not in it (or pass another --out).
+    name = f"smallcnn_{d['image_size']}_fold{a.fold}_seed{cfg['seed']}"
+    # Weights & Biases, before the seed is set: whatever the logging does, it
+    # cannot change a random number the training draws. The --out folder is
+    # the group, so the four fold runs of one experiment sit together.
+    tracking.start({**cfg, "fold": a.fold, "out": a.out}, name, group=Path(a.out).name,
+                   job_type="all" if a.fold == "all" else "fold")
+    seed_everything(cfg["seed"])
 
     # --- 2. Folds. Every unit of `group_strict` lands whole in one fold, so no
     # page and no layout is on both sides of the split. The assignment is
@@ -115,9 +96,6 @@ def main() -> None:
     else:
         k = int(a.fold)
         tr, va = df[df["fold"] != k], df[df["fold"] == k]
-    # The run's name ends up in every file it writes; keep it unique if you
-    # change something that is not in it (or pass another --out).
-    name = f"smallcnn_{d['image_size']}_fold{a.fold}_seed{cfg['seed']}"
     print(f"{name}: {len(tr)} training photographs, {len(va)} validation")
 
     # --- 3. Data loaders. They read the 1024 px copies written by prepare.py
@@ -166,9 +144,9 @@ def main() -> None:
             # half the memory); the loss in full precision.
             with autocast(dev, t["amp"]):
                 logit = model(x)
-            # MSE on the sigmoid of the logit: the prediction stays in [0, 1]
-            # like the label, and the loss is the square of the metric (RMSE).
-            loss = torch.nn.functional.mse_loss(torch.sigmoid(logit.float()), y)
+            # MSE on the sigmoid of the logit (src/loss.py): the prediction
+            # stays in [0, 1] like the label, the loss is the square of the metric.
+            loss = loss_fn(logit, y)
             opt.zero_grad(set_to_none=True)
             loss.backward()
             # Clipping the gradient norm at 1 stops a single bad batch from
@@ -185,6 +163,7 @@ def main() -> None:
         if val_dl is not None:
             row["val_rmse"] = rmse(va[TARGET], predict(model, val_dl, t["amp"]))
         log.append(row)
+        tracking.log({**row, "lr": sched.get_last_lr()[0]})
         print("  " + "  ".join(f"{k} {v:.4f}" if isinstance(v, float) else f"{k} {v}"
                                for k, v in row.items()), flush=True)
 
@@ -198,6 +177,7 @@ def main() -> None:
     torch.save({"config": cfg, "state_dict": model.state_dict(), "fold": a.fold},
                out / f"{name}.pt")
     pd.DataFrame(log).to_csv(out / f"{name}_log.csv", index=False)
+    summary = {}
     if val_dl is not None:
         # One row per validation photograph: label, prediction and the columns
         # you need for error analysis. Pool the four folds' files for the
@@ -210,8 +190,10 @@ def main() -> None:
         # lab 3). The per-epoch val_rmse above counts them all, so the two
         # differ slightly.
         ok = res["eval_ok"] == 1
-        print(f"{name}: validation RMSE {rmse(res.loc[ok, TARGET], res.loc[ok, 'pred']):.4f} "
-              f"on {int(ok.sum())} photographs (eval_ok)")
+        summary = {"val_rmse_eval_ok": rmse(res.loc[ok, TARGET], res.loc[ok, "pred"]), "n_eval_ok": int(ok.sum())}
+        print(f"{name}: validation RMSE {summary['val_rmse_eval_ok']:.4f} "
+              f"on {summary['n_eval_ok']} photographs (eval_ok)")
+    tracking.finish(summary)
     print(f"-> {out / (name + '.pt')}")
 
 

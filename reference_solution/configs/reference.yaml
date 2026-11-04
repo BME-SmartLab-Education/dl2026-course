@@ -30,3 +30,6 @@ train:
   max_shift: 16                  # augmentation: mirror and shift only, never blur or brightness
   amp: true                      # bfloat16 on a GPU that supports it, ignored elsewhere
   num_workers: 4
+
+wandb:
+  project: snap-or-retake        # where train.py logs; WANDB_MODE in .env turns it offline or off

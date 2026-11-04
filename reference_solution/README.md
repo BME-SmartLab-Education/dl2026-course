@@ -12,7 +12,7 @@ repositories, on the course template or on anything else you write. Whatever
 you build on, the reference is the starting point you are measured from: the
 signature line below is defined by its score, and the first row of your
 experiment log is the reference, scored on the same four folds as everything
-after it (`assign_folds` in `src/common.py`).
+after it (`assign_folds` in `src/data.py`).
 
 For the signature you improve on the reference in at least four validated
 steps, and your selected submission must reach a private RMSE at least 25 %
@@ -80,8 +80,11 @@ two ways (pick one):
   `docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm dev python scripts/check_env.py`.
 
 Either way, `check_env.py` then prints a `gpu` line with the card's name; if it
-says `not available`, the run is on the CPU. The reference does not log to
-Weights & Biases; the key in `.env` is there for what you add.
+says `not available`, the run is on the CPU.
+
+**Weights & Biases**, as in labs 3 and 4: every training run logs to it
+([below](#weights--biases)). Paste your key from https://wandb.ai/authorize
+into `.env` after `WANDB_API_KEY=` now; your lab-3 `.env` has it already.
 
 ## The data
 
@@ -159,15 +162,63 @@ something, copy it (`cp configs/reference.yaml configs/my_try.yaml`), change
 the copy, and pass `--config configs/my_try.yaml` to `train`. Keep every
 config you submitted from; rule 7 asks you to reproduce the submission.
 
+## Before a long run: the checks
+
+Whenever you change the network, the loss or the input, run lab 4's checks
+before you spend an hour of training on the change:
+
+```bash
+docker compose run --rm dev python scripts/sanity.py --config configs/my_try.yaml
+```
+
+They take seconds on a GPU and a minute or two on a CPU, and each prints PASS
+or FAIL:
+
+1. **one forward pass**: one finite number per photograph, a prediction in [0, 1];
+2. **the loss before training**: about the loss of predicting the training
+   mean, because the output bias starts there;
+3. **overfit one batch**: trained on 16 photographs only, the loss falls below
+   0.001. If it cannot, there is a bug, and more data will not fix it;
+4. **the same seed twice**: two short runs from one seed give the same losses,
+   or no two of your runs can be compared.
+
+The checks use the network (`src/model.py`), the image size of the config, and
+the loss with its prediction (`src/loss.py`), the same ones `train.py` and
+`predict.py` use. A failed check exits with an error, so
+`python scripts/sanity.py --config ... && python -m src.train ...` never starts
+a run that cannot learn.
+
+## Weights & Biases
+
+Every run of `src.train` logs its config, its curves (training and validation
+RMSE, learning rate, per epoch) and its final validation RMSE to the W&B
+project `snap-or-retake`. The four fold runs of one experiment share a group
+named after their `--out` folder, so `models/lr1e-3` shows up as the group
+`lr1e-3`. `EXPERIMENTS.md` stays the record you hand in; W&B is where you
+compare curves and look up what a run did.
+
+`WANDB_MODE` in `.env` decides where the logs go: `online` (the default),
+`offline` (into `wandb/`, uploaded later with `wandb sync wandb/offline-run-*`),
+or `disabled`. Without a key the run is logged anonymously, with a link you can
+claim later; without a network it falls back to offline. Logging never changes
+a result: the run starts before the seed is set.
+
 ## What is in it, and why
 
 | file | what |
 |---|---|
 | `configs/reference.yaml` | data paths, image size, the network's widths, the training schedule |
-| `src/common.py` | the folds, the resize, the letterbox, the augmentation, the network |
+| `src/config.py` | reads the config; the seed, the device, mixed precision |
+| `src/data.py` | the tables, the folds, the resize, the letterbox, the augmentation: everything that touches pixels |
+| `src/model.py` | the network, and loading it back from a checkpoint |
+| `src/loss.py` | the loss, and how the network's output becomes a prediction: change the two together |
+| `src/optim.py` | the parameter groups and the learning-rate schedule |
+| `src/evaluate.py` | predictions for a set of photographs, and the RMSE |
 | `src/prepare.py` | resizes every photograph once to 1024 px on the long side |
-| `src/train.py` | one training run, on three folds or on all of them |
+| `src/train.py` | one training run, on three folds or on all of them: puts the pieces above together |
 | `src/predict.py` | one or more checkpoints in, a submission out |
+| `src/tracking.py` | the Weights & Biases logging of `train.py` |
+| `scripts/sanity.py` | the checks before training (lab 4) |
 | `scripts/check_submission.py` | checks a submission file before you upload it |
 | `scripts/check_env.py` | checks the container, as in lab 3 |
 | `EXPERIMENTS.md` | the template of your experiment log |
@@ -246,13 +297,18 @@ The full rules are in `practices/README.md`, section 5. In short, four things:
 ## Without a GPU of your own
 
 **Kaggle Notebooks** give a free weekly GPU quota (*Settings → Accelerator →
-GPU*; your phone number has to be verified). Kaggle does not promise a fixed
-number of hours: it has been about 30 hours a week, and the notebook's side
-panel shows how much you have left. In a new notebook, add the competition and
+GPU*; your phone number has to be verified). Kaggle sets the number of hours
+itself: it is 30 a week as this is written, shown under the accelerator in
+*Session options*. In a new notebook, add the competition and
 the training dataset as inputs (*Add Input*), switch *Internet* on (for
-`git clone` and any pretrained weights), then:
+`git clone`, W&B and any pretrained weights), add your W&B key as a Kaggle
+*Secret* named `WANDB_API_KEY`, then:
 
 ```python
+import os
+from kaggle_secrets import UserSecretsClient
+os.environ["WANDB_API_KEY"] = UserSecretsClient().get_secret("WANDB_API_KEY")   # or WANDB_MODE=disabled
+os.environ["PYTHONPATH"] = "."          # what the Docker image sets: scripts/sanity.py imports src
 !git clone https://<token>@github.com/<you>/snap-or-retake.git repo
 %cd repo
 !ln -s /kaggle/input/<training-dataset>/train data/raw/train

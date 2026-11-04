@@ -15,7 +15,9 @@ from pathlib import Path
 import numpy as np
 from torch.utils.data import DataLoader
 
-from src.common import TARGET, Photos, cache_path, load_checkpoint, predict, test_table
+from src.data import TARGET, Photos, cache_path, test_table
+from src.evaluate import predict
+from src.model import load_checkpoint
 
 
 def main() -> None:

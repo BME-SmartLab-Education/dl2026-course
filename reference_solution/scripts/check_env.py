@@ -42,7 +42,7 @@ def main() -> int:
     key = "set" if os.environ.get("WANDB_API_KEY") else "not set, runs will be anonymous"
     print(f"wandb        {wandb.__version__}, mode {os.environ.get('WANDB_MODE', 'online')}, api key {key}")
 
-    from src.common import ROOT
+    from src.config import ROOT
     print(f"project root {ROOT}")
     raw = ROOT / "data" / "raw"
     for name, want in (("train.csv", None), ("train", 1841), ("test", 1628),

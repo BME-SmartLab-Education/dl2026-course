@@ -12,7 +12,8 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from src.common import cache_path, load_config, resize_photo, test_table, train_table
+from src.config import load_config
+from src.data import cache_path, resize_photo, test_table, train_table
 
 
 def main() -> None:
