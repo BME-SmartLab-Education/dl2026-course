@@ -141,25 +141,56 @@ if __name__ == "__main__":
 Nothing needs to be installed and the Docker image is not rebuilt:
 `torchvision`, which holds the ImageNet networks, is already in it.
 
-## The idea in one picture
+## The idea: keep ResNet-18's body, replace its end
 
-```
-grey photograph (1, 512, 512)
-   │  repeat into 3 channels, standardise with ImageNet's mean and std
-   ▼
-trunk   = input block + layer1 + layer2 + layer3   ImageNet weights   (256, 32, 32)
-   ▼
-tail    = layer4                                  ImageNet weights   (512, 16, 16)
-   ▼
-[mean | max] over the 16 × 16 positions           as in lab 4         (1024,)
-   ▼
-dropout → Linear(1024, 1)                         new, ours          one logit
-```
+ResNet-18 was trained on ImageNet to answer one question: *which of 1000
+things is on this photograph?* We have a different question: *how usable is
+this photograph of a document?* So we keep the part that **looks at** the
+photograph and throw away only the part that **names** what is on it. Our own
+ending, which gives one number, takes its place.
 
-ResNet-18's own end (average pooling and a 1000-class layer) is cut off. In
-its place goes lab 4's head: average **and** maximum pooling, then one
-output. The trunk and the tail keep the weights that ImageNet taught them:
-edges, strokes, textures, sharpness. That is what makes the difference.
+![The original ResNet-18 above, our network below. The input block and layer1 to layer4 are copied with their ImageNet weights; average pooling and the 1000-class layer are thrown away; a new head, mean and max pooling and one linear layer, takes their place.](resnet18_parts.png)
+
+The columns of the two rows match: dark blue is copied, red and dashed is
+thrown away, green is new. The small sizes under our network are what each
+block gives for a 512 × 512 photograph.
+
+| part | what it is | weights | what happens to it |
+|---|---|---|---|
+| **trunk** | input block + layer1, layer2, layer3 | 2,782,784 | kept, with its ImageNet weights |
+| **tail** | layer4 | 8,393,728 | kept, with its ImageNet weights |
+| original end | average pooling + `fc` (1000 ImageNet classes) | 513,000 | thrown away |
+| **head** | [mean \| max] pooling + `Linear(1024, 1)` | 1,025 | new, ours (the same kind as in lab 4) |
+
+We keep 11,176,512 of the original 11,689,512 weights: about 96 %.
+
+**What happens to one photograph:**
+
+1. **Input.** The grey 512 × 512 photograph is copied into three channels,
+   because ResNet-18 expects a colour photograph, and standardised (Step 1).
+2. **Trunk.** It turns the photograph into 256 small maps of 32 × 32
+   positions. Each map says, for every place on the page, how strongly one
+   pattern is there: an edge, a stroke, a texture.
+3. **Tail.** It combines these into 512 maps of 16 × 16 positions.
+4. **Pooling.** For each of the 512 maps we keep two numbers, its mean and
+   its maximum: 1024 numbers.
+5. **Linear layer.** It turns the 1024 numbers into one, the logit. The
+   sigmoid makes a usability between 0 and 1 of it, as before.
+
+**Why cut the body into trunk and tail, if we keep both?** The cut leaves
+nothing out: every photograph goes through the trunk and then through the
+tail. We cut so that TASK 2 can *freeze* the parts separately. A frozen part
+keeps its ImageNet weights exactly; the others learn from our photographs.
+
+| `freeze` | trunk | tail | head |
+|---|---|---|---|
+| `none` (TASK 3's config) | trained further | trained further | trained |
+| `trunk` | frozen | trained further | trained |
+| `backbone` | frozen | frozen | trained |
+
+The early layers learn general things, which tend to be useful on any
+photograph. The last stage is more specific to ImageNet's objects, so it is
+the first candidate for retraining.
 
 ---
 
@@ -175,15 +206,22 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 ```
 
-**Where these six numbers come from.** Take ImageNet's 1.3 million training
-photographs and scale every pixel value from 0–255 to 0–1. Then, for the red
-channel, put the red values of all pixels of all photographs into one long
-list. Their average is 0.485, and their standard deviation is 0.229. Do the
-same for green (0.456, 0.224) and for blue (0.406, 0.225).
+**Where these six numbers come from.** Scale every pixel of ImageNet's
+training photographs from 0–255 to 0–1, and look at one colour channel at a
+time.
+
+* **Mean:** the average of all red values is 0.485. So a typical red value
+  in ImageNet is a little below the middle of the scale.
+* **Standard deviation:** how much the red values spread around the mean
+  inside one photograph. Averaged over the photographs, it is 0.229.
+
+The same for green (0.456, 0.224) and for blue (0.406, 0.225). They were
+measured once, on a sample of the training photographs, and everyone has
+used the same six numbers since.
 
 The ResNet was trained on photographs standardised with these numbers,
 `(pixel − mean) / std` per channel. So its first layer expects inputs that
-are about 0 on average and spread about ±1. We feed our photographs the same
+are around 0, mostly between −2 and 2. We feed our photographs the same
 way, with ImageNet's numbers and not our own, because the network's weights
 were learned for those. Our photographs are grey, so the grey value is
 copied into all three channels before the standardisation (TODO 5).
